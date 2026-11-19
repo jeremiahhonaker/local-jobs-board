@@ -1,0 +1,36 @@
+# Local Jobs Board — Render deploy config
+#
+# Deploy with: render blueprint (dashboard) or `render blueprint launch`
+# after pushing this repo to GitHub. Then set the secret env vars marked
+# `sync: false` in the Render dashboard (they are never committed here).
+#
+# The database is Turso (hosted SQLite), created separately at turso.tech.
+# Render does not provision it — create the Turso database first, then paste
+# its URL and auth token below.
+
+services:
+  - type: web
+    name: local-jobs-board
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Public URL of the deployed app. Update after adding your custom domain.
+      - key: APP_URL
+        value: https://local-jobs-board.onrender.com
+      # Email of the board owner — only this account sees board-wide fee totals.
+      - key: OWNER_EMAIL
+        sync: false
+      # Turso database connection (create at https://turso.tech).
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      # Resend (https://resend.com) sends the magic-link sign-in emails.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: Local Jobs Board <noreply@localhost>
