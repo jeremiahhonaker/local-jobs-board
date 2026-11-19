@@ -7,7 +7,8 @@ import * as schema from "./schema";
 
 function createDb() {
   if (env.tursoUrl) {
-    // Production: Turso hosted SQLite (same SQLite dialect as local dev).
+    // Optional: Turso hosted SQLite (same SQLite dialect as local dev).
+    // Re-enable by setting TURSO_DATABASE_URL; unset = local file.
     const client = createClient({
       url: env.tursoUrl,
       authToken: env.tursoAuthToken ?? undefined,
@@ -15,7 +16,8 @@ function createDb() {
     return drizzle(client, { schema });
   }
 
-  // Local dev: SQLite file on disk. Make sure the directory exists first.
+  // SQLite file on disk — local dev, or the Render persistent disk in
+  // production. Make sure the directory exists first.
   const filePath = env.localDbPath;
   mkdirSync(dirname(filePath), { recursive: true });
   const client = createClient({ url: `file:${filePath}` });

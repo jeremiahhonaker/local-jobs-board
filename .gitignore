@@ -22,7 +22,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.production.local
 .env.local
 
-# local SQLite databases (dev / test only — production uses Turso)
+# local SQLite databases (dev / test only — production uses the Render persistent disk)
 data/*.db
 data/*.db-shm
 data/*.db-wal

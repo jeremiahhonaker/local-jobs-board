@@ -4,9 +4,14 @@
 # after pushing this repo to GitHub. Then set the secret env vars marked
 # `sync: false` in the Render dashboard (they are never committed here).
 #
-# The database is Turso (hosted SQLite), created separately at turso.tech.
-# Render does not provision it — create the Turso database first, then paste
-# its URL and auth token below.
+# The database is a SQLite file on a Render persistent disk (mounted at
+# /data), so it survives deploys and restarts. No Turso account is needed:
+# the Turso code path is still in the app and can be re-enabled later by
+# setting TURSO_DATABASE_URL / TURSO_AUTH_TOKEN in the dashboard.
+#
+# Note: a service with a persistent disk can't scale past one instance,
+# and deploys have a few seconds of downtime (Render stops the old
+# instance before starting the new one).
 
 services:
   - type: web
@@ -15,6 +20,10 @@ services:
     dockerfilePath: ./Dockerfile
     plan: starter
     healthCheckPath: /health
+    disk:
+      name: jobs-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -24,11 +33,9 @@ services:
       # Email of the board owner — only this account sees board-wide fee totals.
       - key: OWNER_EMAIL
         sync: false
-      # Turso database connection (create at https://turso.tech).
-      - key: TURSO_DATABASE_URL
-        sync: false
-      - key: TURSO_AUTH_TOKEN
-        sync: false
+      # SQLite file on the persistent disk (created automatically on startup).
+      - key: LOCAL_DB_PATH
+        value: /data/app.db
       # Resend (https://resend.com) sends the magic-link sign-in emails.
       - key: RESEND_API_KEY
         sync: false

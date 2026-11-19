@@ -14,8 +14,9 @@ neighbor posted.
 
 - **Runtime:** Bun + TypeScript
 - **Server:** Hono (REST API + static file serving), Drizzle ORM
-- **Database:** SQLite via libsql — a local file in dev, Turso (hosted SQLite)
-  in production. Same dialect, no migration rewrite.
+- **Database:** SQLite via libsql — a local file in dev, and a file on a
+  Render persistent disk in production. (Turso hosted SQLite is still
+  supported — set `TURSO_DATABASE_URL` to use it — but not required.)
 - **Client:** React 19, plain CSS (no build framework beyond `bun build`)
 - **Auth:** magic-link email sign-in (no passwords) via Resend; sessions in
   httpOnly cookies. Every mutating action checks ownership server-side.
@@ -72,8 +73,7 @@ Accounts Jeremiah needs (all free to create; he creates them himself):
 | Account | Purpose | Cost |
 |---|---|---|
 | GitHub | Holds the code; Render deploys from it | Free |
-| Render | Hosts the app (one web service) | Free to start; ~$7/mo for an always-on service at launch |
-| Turso | Hosted SQLite database | Free tier |
+| Render | Hosts the app (one web service + 1 GB persistent disk for the database) | ~$7/mo for an always-on service at launch, plus a small disk charge |
 | Resend | Sends the magic-link sign-in emails | Free tier |
 | Domain | e.g. `jobs.example.com` | ~$11/year at Cloudflare/Porkbun |
 
@@ -89,42 +89,34 @@ git remote add origin git@github.com:<your-username>/local-jobs-board.git
 git push -u origin main
 ```
 
-### 2. Create the Turso database
-
-```bash
-# Install the Turso CLI (https://docs.turso.tech/cli/installation), then:
-turso auth login
-turso db create local-jobs-board
-turso db show local-jobs-board --url        # -> TURSO_DATABASE_URL
-turso db tokens create local-jobs-board     # -> TURSO_AUTH_TOKEN
-```
-
-### 3. Deploy on Render
+### 2. Deploy on Render
 
 Option A — Blueprint (uses `render.yaml` in this repo):
 
 1. Render dashboard → **New +** → **Blueprint** → connect the GitHub repo.
-2. Render creates the web service from `render.yaml`.
+2. Render creates the web service from `render.yaml`, including a 1 GB
+   persistent disk mounted at `/data` for the database.
 3. In the service's **Environment** tab, set the secrets:
    - `OWNER_EMAIL` — your email (only this account sees board-wide fee totals)
-   - `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` — from step 2
    - `RESEND_API_KEY` — from resend.com (create a free account + API key)
    - `EMAIL_FROM` — e.g. `Local Jobs Board <jobs@yourdomain.com>` (verify the
      sending domain in Resend, or use Resend's onboarding address to start)
    - `APP_URL` — the Render URL first (`https://local-jobs-board.onrender.com`),
      then your custom domain once it is attached.
+   (`LOCAL_DB_PATH=/data/app.db` is already set by `render.yaml`.)
 4. Deploy. The server runs the database migrations automatically on startup.
 
 Option B — manual web service: **New +** → **Web Service** → connect the repo,
-runtime **Docker**, Dockerfile path `./Dockerfile`, then set the same env vars.
+runtime **Docker**, Dockerfile path `./Dockerfile`, attach a 1 GB persistent
+disk at `/data` (under **Advanced**), then set the same env vars.
 
-### 4. Point the domain
+### 3. Point the domain
 
 In Render: service → **Settings** → **Custom Domains** → add your domain, then
 add the DNS records Render shows at your registrar. Update `APP_URL` to the
 custom domain and redeploy.
 
-### 5. Verify the live site
+### 4. Verify the live site
 
 Open the site, request a magic link with your email, and walk the flow once:
 post a job → claim it from a second email → mark it done → check the fee and
@@ -139,10 +131,11 @@ See `.env.example` for the full list. Required in production:
 
 - `APP_URL` — public base URL (used in magic-link emails)
 - `OWNER_EMAIL` — board owner's email (board-wide fee totals)
-- `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` — Turso database
+- `LOCAL_DB_PATH` — SQLite file on the persistent disk (`/data/app.db`; set in `render.yaml`)
 - `RESEND_API_KEY`, `EMAIL_FROM` — magic-link emails
 
-Optional: `PORT` (Render injects it), `NODE_ENV`, `LOCAL_DB_PATH`.
+Optional: `PORT` (Render injects it), `NODE_ENV`. (Turso can be re-enabled
+later with `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`.)
 
 ## What is still needed (later steps, not in this build)
 
@@ -163,6 +156,6 @@ src/server/    Hono API + auth + mail + Drizzle schema (schema.ts, app.ts,
 src/client/    React app (App.tsx, api.ts, main.tsx, index.html, styles.css)
 drizzle/       SQL migrations (applied automatically on server start)
 scripts/       build.ts (client bundler), migrate.ts, e2e-test.ts
-render.yaml    Render Blueprint (Docker web service + env vars)
+render.yaml    Render Blueprint (Docker web service + persistent disk + env vars)
 Dockerfile     Production image (oven/bun)
 ```
